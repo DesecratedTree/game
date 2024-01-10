@@ -103,7 +103,7 @@ on_command("players") {
             // Determine privilege icon based on player's privilege level
             val icon = when (p.privilege.id) {
                 1 -> "<img=0>" // Represents a specific privilege level (e.g., admin)
-                2, 3 -> "<img=1>" // Represents another privilege level (e.g., moderator)
+                2 -> "<img=1>" // Represents another privilege level (e.g., moderator)
                 else -> ""       // Default case (no icon)
             }
             // Set player information in the interface
@@ -121,7 +121,7 @@ on_command("players") {
                 // Determine privilege icon for each player and display their username
                 val icon = when (p.privilege.id) {
                     1 -> "<img=0>"
-                    2, 3 -> "<img=1>"
+                    2 -> "<img=1>"
                     else -> ""
                 }
                 player.message(" - $icon ${Misc.formatForDisplay(p.username)}")
@@ -142,7 +142,7 @@ on_command("locate") {
         // Determine privilege icon based on player's privilege level
         val icon = when (p.privilege.id) {
             1 -> "<img=0>" // Represents a specific privilege level (e.g., admin)
-            2, 3 -> "<img=1>" // Represents another privilege level (e.g., moderator)
+            2 -> "<img=1>" // Represents another privilege level (e.g., moderator)
             else -> ""       // Default case (no icon)
         }
         player.message("Player $icon<col=42C66C>${Misc.formatForDisplay(p.username)}</col> is in: $areaName.")
