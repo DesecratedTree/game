@@ -50,9 +50,7 @@ SHEEP.forEach { initSheep ->
                 val rz = world.random(-sheep.walkRadius..sheep.walkRadius)
                 val start = sheep.spawnTile
                 val dest = start.transform(rx, rz)
-                if (world.collision.chunks.get(dest, createIfNeeded = false) != null) {
-                    sheep.walkTo(dest, detectCollision = true)
-                }
+                sheep.walkTo(dest, detectCollision = true)
             }
         }
     }

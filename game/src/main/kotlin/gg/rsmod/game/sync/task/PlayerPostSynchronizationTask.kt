@@ -2,6 +2,7 @@ package gg.rsmod.game.sync.task
 
 import gg.rsmod.game.model.Tile
 import gg.rsmod.game.model.entity.Player
+import gg.rsmod.game.service.GameService
 import gg.rsmod.game.sync.SynchronizationTask
 
 /**

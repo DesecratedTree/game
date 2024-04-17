@@ -7,6 +7,7 @@ import gg.rsmod.game.model.*
 import gg.rsmod.game.model.attr.*
 import gg.rsmod.game.model.bits.BitStorage
 import gg.rsmod.game.model.bits.StorageBits
+import gg.rsmod.game.model.collision.isClipped
 import gg.rsmod.game.model.container.ItemContainer
 import gg.rsmod.game.model.entity.DynamicObject
 import gg.rsmod.game.model.entity.Player
@@ -221,20 +222,6 @@ fun Player.handleTemporaryDoor(
  * for the player to walk to. Another use-case I found was for bird nests
  * from woodcutting
  */
-fun Player.findWesternTile(): Tile {
-    return listOf(
-        Direction.WEST,
-        Direction.EAST,
-        Direction.SOUTH,
-        Direction.NORTH,
-    ).firstNotNullOfOrNull { direction ->
-        if (world.collision.isBlocked(tile, direction, false)) {
-            null
-        } else {
-            tile.step(direction, 1).takeUnless(world.collision::isClipped)
-        }
-    } ?: tile
-}
 
 fun Player.message(message: String, type: ChatMessageType = ChatMessageType.GAME_MESSAGE, username: String? = null) {
     write(MessageGameMessage(type = type.id, message = message, username = username))
@@ -246,6 +233,21 @@ fun Player.filterableMessage(message: String) {
 
 fun Player.runClientScript(id: Int, vararg args: Any) {
     write(RunClientScriptMessage(id, *args))
+}
+
+fun Player.findWesternTile(): Tile {
+    return listOf(
+        Direction.WEST,
+        Direction.EAST,
+        Direction.SOUTH,
+        Direction.NORTH,
+    ).firstNotNullOfOrNull { direction ->
+        if (world.collision.isClipped(tile)) {
+            null
+        } else {
+            tile.step(direction, 1).takeUnless(world.collision::isClipped)
+        }
+    } ?: tile
 }
 
 fun Player.focusTab(tab: Int) {

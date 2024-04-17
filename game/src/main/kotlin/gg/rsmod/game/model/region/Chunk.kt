@@ -4,8 +4,9 @@ import gg.rsmod.game.message.impl.UpdateZoneFullFollowsMessage
 import gg.rsmod.game.message.impl.UpdateZonePartialEnclosedMessage
 import gg.rsmod.game.message.impl.UpdateZonePartialFollowsMessage
 import gg.rsmod.game.model.*
-import gg.rsmod.game.model.collision.CollisionMatrix
 import gg.rsmod.game.model.collision.CollisionUpdate
+import gg.rsmod.game.model.collision.addObjectCollision
+import gg.rsmod.game.model.collision.removeObjectCollision
 import gg.rsmod.game.model.entity.*
 import gg.rsmod.game.model.region.update.*
 import gg.rsmod.game.service.GameService
@@ -20,24 +21,14 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
  */
 class Chunk(val coords: ChunkCoords, val heights: Int) {
 
-    constructor(other: Chunk) : this(other.coords, other.heights) {
-        copyMatrices(other)
-    }
-
-    /**
-     * The array of matrices of 8x8 tiles. Each index representing a height.
-     */
-    private val matrices: Array<CollisionMatrix> = CollisionMatrix.createMatrices(Tile.TOTAL_HEIGHT_LEVELS, CHUNK_SIZE, CHUNK_SIZE)
-
-    internal val blockedTiles = ObjectOpenHashSet<Tile>()
-
-    internal val waterTiles = ObjectOpenHashSet<Tile>()
-
     /**
      * The [Entity]s that are currently registered to the [Tile] key. This is
      * not used for [gg.rsmod.game.model.entity.Pawn], but rather [Entity]s
      * that do not regularly change [Tile]s.
      */
+
+    internal val waterTiles = ObjectOpenHashSet<Tile>()
+
     private lateinit var entities: MutableMap<Tile, MutableList<Entity>>
 
     /**
@@ -56,35 +47,17 @@ class Chunk(val coords: ChunkCoords, val heights: Int) {
         updates = ObjectArrayList()
     }
 
-    fun getMatrix(height: Int): CollisionMatrix = matrices[height]
-
-    fun setMatrix(height: Int, matrix: CollisionMatrix) {
-        matrices[height] = matrix
-    }
-
-    private fun copyMatrices(other: Chunk) {
-        other.matrices.forEachIndexed { index, matrix ->
-            matrices[index] = CollisionMatrix(matrix)
-        }
-    }
-
     /**
      * Check if [tile] belongs to this chunk.
      */
     fun contains(tile: Tile): Boolean = coords == tile.chunkCoords
-
-    fun isBlocked(tile: Tile, direction: Direction, projectile: Boolean): Boolean = matrices[tile.height].isBlocked(tile.x % CHUNK_SIZE, tile.z % CHUNK_SIZE, direction, projectile)
-
-    fun isClipped(tile: Tile): Boolean = matrices[tile.height].isClipped(tile.x % CHUNK_SIZE, tile.z % CHUNK_SIZE)
-
-    fun isWater(tile: Tile): Boolean = waterTiles.contains(tile)
 
     fun addEntity(world: World, entity: Entity, tile: Tile) {
         /*
          * Objects will affect the collision map.
          */
         if (entity.entityType.isObject) {
-            world.collision.applyCollision(world.definitions, entity as GameObject, CollisionUpdate.Type.ADD)
+            world.collision.addObjectCollision(world.definitions, entity as GameObject)
         }
 
         /*
@@ -136,7 +109,7 @@ class Chunk(val coords: ChunkCoords, val heights: Int) {
          * collision map.
          */
         if (entity.entityType.isObject) {
-            world.collision.applyCollision(world.definitions, entity as GameObject, CollisionUpdate.Type.REMOVE)
+            world.collision.removeObjectCollision(world.definitions, entity as GameObject)
         }
 
         entities[tile]?.remove(entity)
@@ -186,7 +159,6 @@ class Chunk(val coords: ChunkCoords, val heights: Int) {
      */
     private fun sendUpdate(world: World, update: EntityUpdate<*>) {
         val surrounding = coords.getSurroundingCoords()
-
         for (coords in surrounding) {
             val chunk = world.chunks.get(coords, createIfNeeded = false) ?: continue
             val clients = chunk.getEntities<Client>(EntityType.CLIENT)
@@ -194,8 +166,8 @@ class Chunk(val coords: ChunkCoords, val heights: Int) {
                 if (!canBeViewed(client, update.entity)) {
                     continue
                 }
-                val local = client.lastKnownRegionBase!!.toLocal(update.entity.tile)
-                client.write(UpdateZonePartialFollowsMessage(local.x shr 3, local.z shr 3, update.entity.tile.height))
+                val local = client.lastKnownRegionBase!!.toLocal(this.coords.toTile())
+                client.write(UpdateZonePartialFollowsMessage(local.x, local.z, local.height))
                 client.write(update.toMessage())
             }
         }
@@ -207,12 +179,12 @@ class Chunk(val coords: ChunkCoords, val heights: Int) {
      * @param gameService
      * Game service is required to get the XTEA service.
      */
-    fun sendUpdates(p: Player) {
+    fun sendUpdates(p: Player, gameService: GameService) {
         val messages = ObjectArrayList<EntityGroupMessage>()
 
         updates.forEach { update ->
             val message = EntityGroupMessage(update.type.id, update.toMessage())
-            if(canBeViewed(p, update.entity)) {
+            if (canBeViewed(p, update.entity)) {
                 messages.add(message)
             }
         }
@@ -234,10 +206,10 @@ class Chunk(val coords: ChunkCoords, val heights: Int) {
      * Checks to see if player [p] is able to view [entity].
      */
     private fun canBeViewed(p: Player, entity: Entity): Boolean {
+        if (p.tile.height != entity.tile.height) {
+            return false
+        }
         if (entity.entityType.isGroundItem) {
-            if (p.tile.height != entity.tile.height) {
-                return false
-            }
             val item = entity as GroundItem
             return item.isPublic() || item.isOwnedBy(p)
         }
@@ -265,10 +237,6 @@ class Chunk(val coords: ChunkCoords, val heights: Int) {
             if (spawn) MapAnimUpdate(EntityUpdateType.MAP_ANIM, entity as TileGraphic)
             else throw RuntimeException("${entity.entityType} can only be spawned, not removed!")
 
-        EntityType.LOC_ANIM ->
-            if (spawn) LocAnimUpdate(EntityUpdateType.ANIMATE_OBJECT, entity as TileAnimation)
-            else throw RuntimeException("${entity.entityType} can only be spawned, not removed!")
-
         else -> null
     }
 
@@ -277,6 +245,29 @@ class Chunk(val coords: ChunkCoords, val heights: Int) {
 
     @Suppress("UNCHECKED_CAST")
     fun <T> getEntities(tile: Tile, vararg types: EntityType): List<T> = entities[tile]?.filter { it.entityType in types } as? List<T> ?: emptyList()
+
+    fun sendUpdates(p: Player) {
+        val messages = ObjectArrayList<EntityGroupMessage>()
+
+        updates.forEach { update ->
+            val message = EntityGroupMessage(update.type.id, update.toMessage())
+            if(canBeViewed(p, update.entity)) {
+                messages.add(message)
+            }
+        }
+
+        if (messages.isNotEmpty()) {
+            var local =  p.lastKnownRegionBase!!.toLocal(coords.toTile())
+            p.write(UpdateZoneFullFollowsMessage(local.x shr 3, local.z shr 3, p.tile.height))
+            updates.forEach {
+                if(canBeViewed(p, it.entity)) {
+                    local = p.lastKnownRegionBase!!.toLocal(it.entity.tile)
+                    p.write(UpdateZonePartialFollowsMessage(local.x shr 3, local.z shr 3, it.entity.tile.height))
+                    p.write(it.toMessage())
+                }
+            }
+        }
+    }
 
     companion object {
         /**

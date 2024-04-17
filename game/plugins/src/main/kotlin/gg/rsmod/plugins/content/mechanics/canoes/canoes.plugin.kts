@@ -62,7 +62,7 @@ on_obj_option(obj = Objs.CANOE_STATION, option = "chop-down") {
 
     // Lock the player and queue the chopping down of the tree.
     player.lockingQueue {
-        player.walkTo(it = this, tile = CanoeUtils.getChopLocation(player.tile), stepType = MovementQueue.StepType.FORCED_WALK)
+        player.walkTo(it = this, tile = CanoeUtils.getChopLocation(player.tile))
         repeat(player.tile.getDistance(CanoeUtils.getChopLocation(player.tile))) {
             if (player.tile == CanoeUtils.getChopLocation(player.tile))
                 return@lockingQueue
@@ -122,7 +122,7 @@ on_obj_option(obj = CANOE_STATIONS_SHAPE_CANOE, option = "shape-canoe") {
 
         //Handle the player walking towards the station to shape the canoe.
         val endTile = CanoeUtils.getCraftFloatLocation(player.tile)
-        player.walkTo(it = this, tile = endTile, stepType = MovementQueue.StepType.FORCED_WALK)
+        player.walkTo(it = this, tile = endTile)
         repeat(player.tile.getDistance(endTile)) {
             if (player.tile == endTile)
                 return@lockingQueue

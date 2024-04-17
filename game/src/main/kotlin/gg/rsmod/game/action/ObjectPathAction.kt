@@ -3,6 +3,7 @@ package gg.rsmod.game.action
 import gg.rsmod.game.fs.def.ObjectDef
 import gg.rsmod.game.message.impl.SetMapFlagMessage
 import gg.rsmod.game.model.Direction
+import gg.rsmod.game.model.Tile
 import gg.rsmod.game.model.MovementQueue
 import gg.rsmod.game.model.attr.INTERACTING_ITEM
 import gg.rsmod.game.model.attr.INTERACTING_OBJ_ATTR
@@ -12,8 +13,6 @@ import gg.rsmod.game.model.entity.Entity
 import gg.rsmod.game.model.entity.GameObject
 import gg.rsmod.game.model.entity.Pawn
 import gg.rsmod.game.model.entity.Player
-import gg.rsmod.game.model.path.PathRequest
-import gg.rsmod.game.model.path.Route
 import gg.rsmod.game.model.queue.QueueTask
 import gg.rsmod.game.model.queue.TaskPriority
 import gg.rsmod.game.model.timer.FROZEN_TIMER
@@ -22,6 +21,9 @@ import gg.rsmod.game.plugin.Plugin
 import gg.rsmod.util.AabbUtil
 import gg.rsmod.util.DataConstants
 import java.util.*
+import org.rsmod.game.pathfinder.PathFinder
+import org.rsmod.game.pathfinder.Route
+import org.rsmod.game.pathfinder.collision.CollisionStrategies
 
 /**
  * This class is responsible for calculating distances and valid interaction
@@ -99,9 +101,9 @@ object ObjectPathAction {
         var length = def.length
         val clipMask = def.clipMask
 
-        val wall = type == ObjectType.LENGTHWISE_WALL.value || type == ObjectType.DIAGONAL_WALL.value
-        val diagonal = type == ObjectType.DIAGONAL_WALL.value || type == ObjectType.DIAGONAL_INTERACTABLE.value
-        val wallDeco = type == ObjectType.INTERACTABLE_WALL_DECORATION.value || type == ObjectType.INTERACTABLE_WALL.value
+        val wall = type == 0 || type == 9
+        val diagonal = type == 9 || type == 11
+        val wallDeco = type == 4 || type == 5
         val blockDirections = EnumSet.noneOf(Direction::class.java)
 
         if (wallDeco) {
@@ -171,7 +173,7 @@ object ObjectPathAction {
             if (pawn.tile.isWithinRadius(tile, 1)) {
                 val dir = Direction.between(tile, pawn.tile)
                 if (dir !in blockedWallDirections && (diagonal || !AabbUtil.areDiagonal(pawn.tile.x, pawn.tile.z, pawn.getSize(), pawn.getSize(), tile.x, tile.z, width, length))) {
-                    return Route(ArrayDeque(), success = true, tail = pawn.tile)
+                    return Route(Pawn.EMPTY_TILE_DEQUE, alternative = false, success = true)
                 }
             }
 
@@ -187,66 +189,66 @@ object ObjectPathAction {
             }
         }
 
-        val builder = PathRequest.Builder()
-                .setPoints(pawn.tile, tile)
-                .setSourceSize(pawn.getSize(), pawn.getSize())
-                .setProjectilePath(lineOfSightRange != null)
-                .setTargetSize(width, length)
-                .clipPathNodes(node = true, link = true)
-                .clipDirections(*blockDirections.toTypedArray())
+        val route = pawn.world.pathFinder.findPath(
+            level = pawn.tile.height,
+            srcX = pawn.tile.x,
+            srcZ = pawn.tile.z,
+            destX = obj.tile.x,
+            destZ = obj.tile.z,
+            srcSize = pawn.getSize(),
+            collision = CollisionStrategies.Normal,
+        )
+//        if (lineOfSightRange != null) {
+//            builder.setTouchRadius(lineOfSightRange)
+//        }
+//
+//        /*
+//         * If the object is not a 'diagonal' object, you shouldn't be able to
+//         * interact with them from diagonal tiles.
+//         */
+//        if (!diagonal) {
+//            builder.clipDiagonalTiles()
+//        }
+//
+//        if(diagonal && width < 2 && length < 2) {
+//            builder.clipDiagonalTiles()
+//        }
+//
+//        /*
+//         * If the object is not a wall object, or if we have a line of sight range
+//         * set for the object, then we shouldn't clip the tiles that overlap the
+//         * object; otherwise we do clip them.
+//         */
+//        if (!wall && (lineOfSightRange == null || lineOfSightRange > 0)) {
+//            builder.clipOverlapTiles()
+//        }
+//
+//        if (pawn.timers.has(FROZEN_TIMER) && !pawn.tile.sameAs(route.tail)) {
+//            return Route(ArrayDeque(), success = false, tail = pawn.tile)
+//        }
 
+        val tileQueue: Queue<Tile> = ArrayDeque(route.waypoints.map { Tile(it.x, it.z, it.level) })
 
-        if (lineOfSightRange != null) {
-            builder.setTouchRadius(lineOfSightRange)
-        }
-
-        /*
-         * If the object is not a 'diagonal' object, you shouldn't be able to
-         * interact with them from diagonal tiles.
-         */
-        if (!diagonal) {
-            builder.clipDiagonalTiles()
-        }
-
-        if(diagonal && width < 2 && length < 2) {
-            builder.clipDiagonalTiles()
-        }
-
-        /*
-         * If the object is not a wall object, or if we have a line of sight range
-         * set for the object, then we shouldn't clip the tiles that overlap the
-         * object; otherwise we do clip them.
-         */
-        if (!wall && (lineOfSightRange == null || lineOfSightRange > 0)) {
-            builder.clipOverlapTiles()
-        }
-
-        val route = pawn.createPathFindingStrategy().calculateRoute(builder.build())
-
-        if (pawn.timers.has(FROZEN_TIMER) && !pawn.tile.sameAs(route.tail)) {
-            return Route(ArrayDeque(), success = false, tail = pawn.tile)
-        }
-
-        pawn.walkPath(route.path, MovementQueue.StepType.NORMAL, detectCollision = true)
+        pawn.walkPath(tileQueue, MovementQueue.StepType.NORMAL, detectCollision = true)
 
         val last = pawn.movementQueue.peekLast()
 
         while (last != null && !pawn.tile.sameAs(last) && !pawn.timers.has(FROZEN_TIMER) && !pawn.timers.has(STUN_TIMER) && pawn.lock.canMove()) {
             wait(1)
         }
-
-        if (pawn.timers.has(STUN_TIMER)) {
-            pawn.stopMovement()
-            return Route(ArrayDeque(), success = false, tail = pawn.tile)
-        }
-
-        if (pawn.timers.has(FROZEN_TIMER) && !pawn.tile.sameAs(route.tail)) {
-            return Route(ArrayDeque(), success = false, tail = pawn.tile)
-        }
-
-        if (wall && !route.success && Direction.between(tile, pawn.tile) !in blockedWallDirections) {
-            return Route(route.path, success = true, tail = route.tail)
-        }
+//
+//        if (pawn.timers.has(STUN_TIMER)) {
+//            pawn.stopMovement()
+//            return Route(ArrayDeque(), success = false, tail = pawn.tile)
+//        }
+//
+//        if (pawn.timers.has(FROZEN_TIMER) && !pawn.tile.sameAs(route.tail)) {
+//            return Route(ArrayDeque(), success = false, tail = pawn.tile)
+//        }
+//
+//        if (wall && !route.success && Direction.between(tile, pawn.tile) !in blockedWallDirections) {
+//            return Route(route.path, success = true, tail = route.tail)
+//        }
 
         return route
     }

@@ -79,7 +79,7 @@ suspend fun cycle(it: QueueTask): Boolean {
     val strategy = CombatConfigs.getCombatStrategy(pawn)
     val attackRange = strategy.getAttackRange(pawn)
 
-    var pathFound = PawnPathAction.walkTo(it, pawn, target, interactionRange = attackRange, lineOfSight = false)
+    var pathFound = PawnPathAction.walkTo(pawn, target, interactionRange = attackRange, lineOfSight = false)
 
     if (strategy == MeleeCombatStrategy && pawn.tile.getDistance(target.tile) <= pawn.getSize()) {
         pathFound = true

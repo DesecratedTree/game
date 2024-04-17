@@ -17,6 +17,7 @@ import mu.KLogging
 import net.runelite.cache.IndexType
 import net.runelite.cache.definitions.loaders.LocationsLoader
 import net.runelite.cache.definitions.loaders.MapLoader
+import org.rsmod.game.pathfinder.flag.CollisionFlag
 import java.io.IOException
 
 /**
@@ -215,7 +216,7 @@ class DefinitionSet {
                     }
 
 
-                    if ((tileSetting.toInt() and CollisionManager.UNKNOWN_TILE) == CollisionManager.UNKNOWN_TILE) {
+                    if ((tileSetting.toInt() and CollisionManager.BLOCKED_TILE) == CollisionManager.BLOCKED_TILE) {
                         blocked.add(tile.transform(-1))
                     }
 
@@ -248,13 +249,12 @@ class DefinitionSet {
         val blockedTileBuilder = CollisionUpdate.Builder()
         blockedTileBuilder.setType(CollisionUpdate.Type.ADD)
         blocked.forEach { tile ->
-            world.chunks.getOrCreate(tile).blockedTiles.add(tile)
-            blockedTileBuilder.putTile(tile, false, *Direction.NESW)
+            world.chunks.getOrCreate(tile)
+            world.collision.add(tile.x, tile.z, tile.height, CollisionFlag.FLOOR)
         }
         water.forEach { tile ->
             world.chunks.getOrCreate(tile).waterTiles.add(tile)
         }
-        world.collision.applyUpdate(blockedTileBuilder.build())
 
         if (xteaService == null) {
             /*

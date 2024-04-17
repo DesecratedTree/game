@@ -4,11 +4,11 @@ import gg.rsmod.game.message.impl.SetMapFlagMessage
 import gg.rsmod.game.model.MovementQueue
 import gg.rsmod.game.model.Tile
 import gg.rsmod.game.model.attr.*
+import gg.rsmod.game.model.collision.raycast
 import gg.rsmod.game.model.entity.Entity
 import gg.rsmod.game.model.entity.Npc
 import gg.rsmod.game.model.entity.Pawn
 import gg.rsmod.game.model.entity.Player
-import gg.rsmod.game.model.path.PathRequest
 import gg.rsmod.game.model.queue.QueueTask
 import gg.rsmod.game.model.queue.TaskPriority
 import gg.rsmod.game.model.timer.FROZEN_TIMER
@@ -16,7 +16,9 @@ import gg.rsmod.game.model.timer.RESET_PAWN_FACING_TIMER
 import gg.rsmod.game.model.timer.STUN_TIMER
 import gg.rsmod.game.plugin.Plugin
 import gg.rsmod.util.AabbUtil
+import org.rsmod.game.pathfinder.collision.CollisionStrategies
 import java.lang.ref.WeakReference
+import java.util.*
 
 /**
  * @author Tom <rspsmods@gmail.com>
@@ -95,7 +97,12 @@ object PawnPathAction {
             }
         }
 
-        val pathFound = walkTo(it, pawn, other, interactionRange = lineOfSightRange ?: 1, lineOfSight = lineOfSightRange != null)
+        val pathFound = walkTo(
+            pawn,
+            other,
+            interactionRange = lineOfSightRange ?: 1,
+            lineOfSight = lineOfSightRange != null
+        )
         if (!pathFound) {
             pawn.movementQueue.clear()
             if (pawn is Player) {
@@ -183,7 +190,7 @@ object PawnPathAction {
         }
     }
 
-    suspend fun walkTo(it: QueueTask, pawn: Pawn, target: Pawn, interactionRange: Int, lineOfSight: Boolean): Boolean {
+    suspend fun walkTo(pawn: Pawn, target: Pawn, interactionRange: Int, lineOfSight: Boolean): Boolean {
         val sourceSize = pawn.getSize()
         val targetSize = target.getSize()
         val sourceTile = pawn.tile
@@ -210,41 +217,32 @@ object PawnPathAction {
                 return if (!lineOfSight) {
                     bordering(sourceTile, sourceSize, targetTile, interactionRange)
                 } else {
-                    overlap(sourceTile, sourceSize, targetTile, interactionRange) && (interactionRange == 0 || !sourceTile.sameAs(targetTile))
+                    overlap(
+                        sourceTile,
+                        sourceSize,
+                        targetTile,
+                        interactionRange
+                    ) && (interactionRange == 0 || !sourceTile.sameAs(targetTile))
                             && pawn.world.collision.raycast(sourceTile, targetTile, lineOfSight)
                 }
             }
         }
 
-        val builder = PathRequest.Builder()
-            .setPoints(sourceTile, targetTile)
-            .setSourceSize(sourceSize, sourceSize)
-            .setTargetSize(targetSize, targetSize)
-            .setProjectilePath(lineOfSight || projectile)
-            .setTouchRadius(interactionRange)
-            .clipPathNodes(node = true, link = true)
+        val newRoute = pawn.world.pathFinder.findPath(
+            level = pawn.tile.height,
+            srcX = sourceTile.x,
+            srcZ = sourceTile.z,
+            destX = targetTile.x,
+            destZ = targetTile.z,
+            srcSize = sourceSize,
+            destWidth = targetSize,
+            destHeight = targetSize,
+            collision = CollisionStrategies.Normal,
+        )
 
-        if (!lineOfSight && !projectile) {
-            builder.clipDiagonalTiles()
-        }
-
-        builder.clipOverlapTiles()
-
-        val route = pawn.createPathFindingStrategy().calculateRoute(builder.build())
-
-        pawn.walkPath(route.path, MovementQueue.StepType.NORMAL, detectCollision = true)
-
-        if (pawn.hasLineOfSightTo(target, true, interactionRange) && projectile) {
-            return route.success
-        }
-
-        while (!pawn.tile.sameAs(route.tail)) {
-            if (!targetTile.sameAs(target.tile)) {
-                return walkTo(it, pawn, target, interactionRange, lineOfSight)
-            }
-            it.wait(1)
-        }
-        return route.success
+        val tileQueue: Queue<Tile> = ArrayDeque(newRoute.waypoints.map { Tile(it.x, it.z, it.level) })
+        pawn.walkPath(tileQueue, MovementQueue.StepType.NORMAL, detectCollision = false)
+        return newRoute.success
     }
 
     private fun overlap(tile1: Tile, size1: Int, tile2: Tile, size2: Int): Boolean =

@@ -41,7 +41,6 @@ class MovementQueue(val pawn: Pawn) {
     }
 
     fun cycle() {
-        val collision = pawn.world.collision
 
         var next = steps.poll()
         if (next != null) {
@@ -52,26 +51,7 @@ class MovementQueue(val pawn: Pawn) {
 
             walkDirection = Direction.between(tile, next.tile)
 
-            if (walkDirection != Direction.NONE && (!next.detectCollision || collision.canTraverse(tile, walkDirection, projectile = false, water = (pawn.walkMask and 0x4) != 0))) {
-                if(pawn is Npc) {
-                    val entitiesClipped = mutableListOf<Pawn>()
-
-                    pawn.world.chunks.get(next.tile, createIfNeeded = true)!!
-                        .getEntities<Npc>(next.tile, EntityType.NPC)
-                        .filter { it.tile == next.tile }
-                        .let { entitiesClipped.addAll(it) }
-
-                    pawn.world.chunks.get(next.tile, createIfNeeded = true)!!
-                        .getEntities<Player>(next.tile, EntityType.CLIENT)
-                        .filter { it.tile == next.tile }
-                        .let { entitiesClipped.addAll(it) }
-
-                    if (entitiesClipped.isNotEmpty()) {
-                        entitiesClipped.clear()
-                        clear()
-                        return
-                    }
-                }
+            if (walkDirection != Direction.NONE && (!next.detectCollision || pawn.world.canTraverse(tile, walkDirection))) {
                 tile = Tile(next.tile)
                 pawn.lastFacingDirection = walkDirection
 
@@ -85,7 +65,7 @@ class MovementQueue(val pawn: Pawn) {
                     if (next != null) {
                         runDirection = Direction.between(tile, next.tile)
 
-                        if (!next.detectCollision || collision.canTraverse(tile, runDirection, projectile = false, water = (pawn.walkMask and 0x4) != 0)) {
+                        if (!next.detectCollision || pawn.world.canTraverse(tile, runDirection)) {
                             tile = Tile(next.tile)
                             pawn.lastFacingDirection = runDirection
                         } else {
@@ -98,6 +78,7 @@ class MovementQueue(val pawn: Pawn) {
                 walkDirection = null
                 clear()
             }
+
 
             if (walkDirection != null && walkDirection != Direction.NONE) {
                 pawn.steps = StepDirection(walkDirection, runDirection)
