@@ -28,7 +28,6 @@ on_obj_option(Objs.DOOR_2406, "open") {
     val currentStage = player.getCurrentStage(LostCity)
 
     // Specify the minimum quest stage and the item ID for the Dramen Staff
-    val minQuestStage = LostCity.CREATE_DRAMEN_BRANCH// Set your minimum quest stage here
     val dramenStaffId = Items.DRAMEN_STAFF
 
     if (player.hasEquipped(intArrayOf(dramenStaffId)) && currentStage >= 5) {

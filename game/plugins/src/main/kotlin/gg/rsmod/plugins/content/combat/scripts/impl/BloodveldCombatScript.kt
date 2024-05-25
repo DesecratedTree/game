@@ -23,7 +23,6 @@ object BloodveldCombatScript {
             if (npc.moveToAttackRange(it, target, distance = 1, projectile = false) && npc.isAttackDelayReady()) {
                 npc.prepareAttack(CombatClass.MAGIC, StyleType.MAGIC_MELEE, WeaponStyle.ACCURATE)
                 if (target is Player) {
-                    val player = target
                         npc.animate(npc.combatDef.attackAnimation)
                         npc.dealHit(target = target, formula = MeleeCombatFormula, delay = 1, type = HitType.MAGIC)
                 }

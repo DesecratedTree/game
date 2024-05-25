@@ -29,7 +29,6 @@ fun setSail(player: Player, charter: CharterType, port: Ports, cost: Int) {
         player.openInterface(FADE_OUT_INTERFACE, InterfaceDestination.MAIN_SCREEN_FULL)
         player.moveTo(boatTile)
         val coins = Item(Items.COINS_995, amount = cost)
-        val remove = player.inventory.remove(coins)
         if (charter == CharterType.FADE_TO_BLACK)
             player.message("You pay $cost coins and sail to ${port.portName}.".formatNumber())
         wait(3)

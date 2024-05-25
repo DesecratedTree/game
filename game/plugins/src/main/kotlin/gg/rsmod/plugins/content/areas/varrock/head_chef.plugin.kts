@@ -4,18 +4,18 @@ import gg.rsmod.plugins.content.skills.Skillcapes
 on_npc_option(npc = Npcs.HEAD_CHEF, option = "talk-to") {
     player.queue {
         if (player.skills.getCurrentLevel(Skills.COOKING) >= 99) {
-            mainChatWith99 (this, player)
-        }else{ mainChat (this, player)
+            mainChatWith99 (this)
+        }else{ mainChat (this)
         }
     }
 }
 
-suspend fun mainChat(it: QueueTask, player: Player) {
+suspend fun mainChat(it: QueueTask) {
     it.chatNpc("Hello, welcome to the Cooking Guild. It's always great to",
         "have such an accomplished chef visit us.")
 }
 
-suspend fun mainChatWith99(it: QueueTask, player: Player) {
+suspend fun mainChatWith99(it: QueueTask) {
     it.chatNpc("Hello, welcome to the Cooking Guild. It's always great to",
             "have such an accomplished chef visit us. Say, would you",
             "be interested in a Skillcape of Cooking? They're only",

@@ -65,7 +65,6 @@ object WeavingAction {
     private suspend fun canWeave(task: QueueTask, data: WeavingData): Boolean {
         val player = task.player
         val inventory = player.inventory
-        val resourceName = player.world.definitions.get(ItemDef::class.java, data.resourceItem.id).name.lowercase()
         val resultName = player.world.definitions.get(ItemDef::class.java, data.resultItem).name.lowercase()
 
         if (inventory.getItemCount(data.resourceItem.id) < data.resourceItem.amount) {

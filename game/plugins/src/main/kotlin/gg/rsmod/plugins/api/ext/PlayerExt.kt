@@ -198,7 +198,6 @@ fun Player.handleTemporaryDoor(
     val moveX = if (moveObjX == -1) obj.tile.x else moveObjX
     val moveZ = if (moveObjZ == -1) obj.tile.x else moveObjZ
     val nextDoorId = if (newDoorId == -1) obj.id else newDoorId
-    val rotation = if (newRotation == -1) obj.rot else newRotation
     val wait = if (waitTime == -1) 2 else waitTime
     lockingQueue(lockState = LockState.DELAY_ACTIONS) {
         world.remove(obj)
