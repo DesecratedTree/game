@@ -108,12 +108,12 @@ object PlayerSynchronizationTask : SynchronizationTask<Player> {
                 segments.add(PlayerUpdateBlockSegment(other = local, newPlayer = false))
             }
             if (local.moved) {
-                val currTileHash = local?.tile?.asTileHashMultiplier ?: 0
+                val currTileHash = local.tile.asTileHashMultiplier
                 player.gpiTileHashMultipliers[index] = currTileHash
 
                 segments.add(PlayerTeleportSegment(other = local, encodeUpdateBlocks = requiresBlockUpdate))
             } else if (local.steps != null) {
-                val currTileHash = local?.tile?.asTileHashMultiplier ?: 0
+                val currTileHash = local.tile.asTileHashMultiplier
                 player.gpiTileHashMultipliers[index] = currTileHash
 
                 var dx = Misc.DIRECTION_DELTA_X[local.steps!!.walkDirection!!.walkValue]

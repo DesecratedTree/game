@@ -130,8 +130,8 @@ object RangedCombatStrategy : CombatStrategy {
             /*
              * Remove or drop ammo if applicable.
              */
-            val ammoNeeded = if (ammoProjectile != null) ammoProjectile?.noAmmoNeeded() else true
-            val breakOnImpact = if (ammoProjectile != null) ammoProjectile?.breakOnImpact() else false
+            val ammoNeeded = ammoProjectile?.noAmmoNeeded() ?: true
+            val breakOnImpact = ammoProjectile?.breakOnImpact() ?: false
             if (ammo != null) {
                 val chance = world.random(99)
                 val breakAmmo = chance in 0..19
