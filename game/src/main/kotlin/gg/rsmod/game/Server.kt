@@ -59,7 +59,7 @@ class Server {
          * Inform the time it took to load the API related logic.
          */
         logger.info("${getApiName()} loaded up in ${stopwatch.elapsed(TimeUnit.MILLISECONDS)}ms.")
-        logger.info("Visit our site ${getApiSite()} to purchase & sell plugins.")
+        //logger.info("Visit our site ${getApiSite()} to purchase & sell plugins.")
     }
 
     /**

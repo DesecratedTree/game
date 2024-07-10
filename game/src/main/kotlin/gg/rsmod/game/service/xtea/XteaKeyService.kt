@@ -33,16 +33,21 @@ class XteaKeyService : Service {
         if (!Files.exists(path)) {
             throw FileNotFoundException("Path does not exist. $path")
         }
-        val keyFiles = path.listDirectoryEntries("*.json")
-        if (keyFiles.size == 1) {
-            val singleFile = keyFiles.first()
-            logger.info { "Loading XTEA keys from single file: $singleFile" }
-            loadSingleFile(singleFile)
-        } else {
-            logger.info { "Multiple XTEA key files detected - loading as directory" }
-            loadDirectory(path)
+
+        // We want to load a singular file here. Loading as '*.json' is bad practice and could have
+        // some serious security implications.
+
+        val xteaFile = path.resolve("xteas.json")
+
+
+        if (!Files.exists(xteaFile)) {  // Checks if the XTEA file exists, throws an exception if not.
+            logger.error { "No XTEA key file 'xteas.json' found. Stopping server initialization." }
+            logger.error { "!! Please place XTEA keys in '~/data/xteas/' as 'xteas.json' before proceeding !!" }
+            throw IllegalStateException("Missing XTEA keys.")
         }
 
+        logger.info { "Loading XTEA keys from file: $xteaFile" }
+        loadSingleFile(xteaFile)
         loadKeys(world)
     }
 
